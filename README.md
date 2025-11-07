@@ -1,5 +1,7 @@
 # TransmiBot
 
+<img width="1044" height="1232" alt="image" src="https://github.com/user-attachments/assets/df0a401f-248b-4988-abd2-fde0248acf36" />
+
 ## Propósito
 
 TransmiBot es un chatbot para Telegram que delega sus respuestas a un agente de Google ADK (Gemini) para asistir con temas de movilidad en Colombia.
