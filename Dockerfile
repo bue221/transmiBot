@@ -5,7 +5,7 @@ ENV UV_VERSION=0.4.10 \
     PYTHONUNBUFFERED=1 \
     PATH="/root/.local/bin:${PATH}"
 
-RUN apt-get update && apt-get install -y --no-install-recommENDS build-essential curl \
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential curl \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -13,11 +13,11 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 WORKDIR ${APP_HOME}
 
 COPY pyproject.toml ./
+COPY uv.lock ./
 
 RUN uv sync --no-editable
 
 COPY src ./src
-COPY tests ./tests
 
 ENV PYTHONPATH="${APP_HOME}/src"
 
