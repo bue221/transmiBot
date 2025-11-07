@@ -1,0 +1,40 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+
+.env
+.env.*
+!.env.example
+
+/build/
+/dist/
+/htmlcov/
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+*.cover
+
+.venv/
+venv/
+env/
+
+.idea/
+.vscode/
+.DS_Store
+
+# uv cache directory
+.uv/
+
+# Cursor/VSCode artifacts
+.cursor/
+.npm/
+
+# Logs and runtime files
+*.log
+*.pid
+*.sqlite3
+
