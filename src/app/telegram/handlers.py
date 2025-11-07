@@ -23,4 +23,8 @@ async def handle_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> No
     logger.exception("Unhandled exception in Telegram handler", exc_info=context.error)
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    return update.message.reply_text("Hello, world!")
+    if update.message is None:
+        logger.warning("Received text handler update without message: %s", update)
+        return
+
+    await update.message.reply_text("Hello, world!")

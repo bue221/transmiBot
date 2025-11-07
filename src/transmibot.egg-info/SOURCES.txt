@@ -6,7 +6,9 @@ src/app/exceptions.py
 src/app/logging_config.py
 src/app/main.py
 src/app/agents/__init__.py
-src/app/agents/google.py
+src/app/agents/transmi_agent/__init__.py
+src/app/agents/transmi_agent/agent.py
+src/app/agents/transmi_agent/tools.py
 src/app/services/__init__.py
 src/app/telegram/__init__.py
 src/app/telegram/bot.py

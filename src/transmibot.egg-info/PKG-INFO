@@ -9,6 +9,7 @@ Requires-Dist: python-telegram-bot[webhooks]>=22.5
 Requires-Dist: google-adk>=0.5.0
 Requires-Dist: pydantic>=2.9
 Requires-Dist: pydantic-settings>=2.5
+Requires-Dist: playwright>=1.47
 
 # transmiBot
 
@@ -19,6 +20,7 @@ Telegram chatbot scaffold that delegates conversational responses to a Google AD
 - Python 3.12, managed with `uv`
 - `python-telegram-bot` async dispatcher
 - Google Agent Development Kit (ADK) with Gemini model
+- Playwright for browser automation (Chromium headless)
 - Docker image for deployment
 
 ## Prerequisites
@@ -29,8 +31,13 @@ Telegram chatbot scaffold that delegates conversational responses to a Google AD
 ## Local Setup
 ```bash
 uv sync --python 3.12
+uv run playwright install
 uv run python -m app.main
 ```
+
+The dedicated `playwright install` step downloads the browser binaries required for the
+Simit screenshot tool. See the [Playwright Python introduction](https://playwright.dev/python/docs/intro)
+for additional options.
 
 ## Configuration
 Create a `.env` file (or export variables) with:

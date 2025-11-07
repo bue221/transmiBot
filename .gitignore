@@ -38,3 +38,5 @@ env/
 *.pid
 *.sqlite3
 
+# Screenshots
+var/screenshots/

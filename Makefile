@@ -1,4 +1,4 @@
-.PHONY: install run docker-build docker-run clean
+.PHONY: install run docker-build docker-run clean adk-web
 
 install:
 	uv sync --python 3.12
@@ -18,3 +18,6 @@ docker-run:
 
 clean:
 	rm -rf .venv __pycache__
+
+adk-web:
+	cd $(CURDIR)/src/app/agents && uv run adk web
