@@ -1,11 +1,31 @@
 import logging
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+from aiohttp import web
 
 from app.config import get_settings
 from app.exceptions import ConfigurationError, ExternalServiceError
 from app.health import HealthServer, start_health_server
 from app.logging_config import configure_logging
 from app.telegram.bot import build_application
+
+if TYPE_CHECKING:  # pragma: no cover - import for type hints only
+    from telegram.ext import Application
+
+_WEBHOOK_HEALTH_PATHS: tuple[str, ...] = ("/", "/healthz", "/_ah/health")
+
+
+async def _handle_health(_: web.Request) -> web.Response:
+    return web.Response(text="ok", content_type="text/plain")
+
+
+def _build_webhook_app(application: "Application", url_path: str) -> web.Application:
+    webhook_app = web.Application()
+    webhook_app.router.add_post(url_path, application.webhook_handler())
+    for path in _WEBHOOK_HEALTH_PATHS:
+        webhook_app.router.add_get(path, _handle_health)
+        webhook_app.router.add_head(path, _handle_health)
+    return webhook_app
 
 
 def main() -> None:
@@ -19,13 +39,16 @@ def main() -> None:
 
     try:
         if settings.telegram_webhook_url:
+            webhook_url = str(settings.telegram_webhook_url)
+            webhook_app = _build_webhook_app(application, settings.telegram_webhook_path)
             application.run_webhook(
                 listen="0.0.0.0",
                 port=settings.port,
                 url_path=settings.telegram_webhook_path,
-                webhook_url=settings.telegram_webhook_url,
+                webhook_url=webhook_url,
                 drop_pending_updates=True,
                 allowed_updates=list(settings.telegram_allowed_updates),
+                webhook_app=webhook_app,
             )
         else:
             try:
