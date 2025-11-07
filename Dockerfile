@@ -16,10 +16,12 @@ COPY pyproject.toml ./
 COPY uv.lock ./
 
 RUN uv sync --no-editable
+RUN uv run playwright install --with-deps chromium
 
 COPY src ./src
 
 ENV PYTHONPATH="${APP_HOME}/src"
+EXPOSE 8080
 
 CMD ["uv", "run", "python", "-m", "app.main"]
 
