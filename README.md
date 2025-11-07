@@ -1,24 +1,24 @@
-# transmiBot
+# TransmiBot
 
-## Purpose
+## Propósito
 
-Telegram chatbot scaffold that delegates conversational responses to a Google ADK agent (Gemini).
+TransmiBot es un chatbot para Telegram que delega sus respuestas a un agente de Google ADK (Gemini) para asistir con temas de movilidad en Colombia.
 
 ## Stack
 
-- Python 3.12, managed with `uv`
-- `python-telegram-bot` async dispatcher
-- Google Agent Development Kit (ADK) with Gemini model
-- Playwright for browser automation (Chromium headless)
-- Docker image for deployment
+- Python 3.12, administrado con `uv`
+- Despachador asíncrono `python-telegram-bot`
+- Google Agent Development Kit (ADK) con modelo Gemini
+- Playwright para automatización de navegador (Chromium headless)
+- Imagen Docker lista para despliegue
 
-## Prerequisites
+## Requisitos previos
 
-- `uv` installed locally (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
-- Telegram bot token (`TELEGRAM_BOT_TOKEN`)
-- Gemini API key (`GOOGLE_API_KEY`)
+- `uv` instalado localmente (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- Token del bot de Telegram (`TELEGRAM_BOT_TOKEN`)
+- API Key de Gemini (`GOOGLE_API_KEY`)
 
-## Local Setup
+## Configuración local
 
 ```bash
 uv sync --python 3.12
@@ -26,24 +26,18 @@ uv run playwright install
 uv run python -m app.main
 ```
 
-The dedicated `playwright install` step downloads the browser binaries required for the
-Simit screenshot tool. See the [Playwright Python introduction](https://playwright.dev/python/docs/intro)
-for additional options.
+El paso `playwright install` descarga los binarios del navegador necesarios para la herramienta de capturas Simit. Consulta la [introducción de Playwright para Python](https://playwright.dev/python/docs/intro) si necesitas más opciones.
 
-Simit screenshots are stored in `var/screenshots/` with timestamped filenames for traceability.
-The automation allows the Simit page to settle for ~7 seconds before capturing the screenshot to
-ensure dynamic content has finished loading.
-The tool also extracts the textual content of every `.container-fluid` block so the agent can
-summarise or analyse the retrieved information.
+Las capturas de Simit se guardan en `var/screenshots/` con nombres timestamp para trazabilidad. La automatización espera ~7 segundos antes de capturar la imagen para asegurar que el contenido dinámico haya terminado de cargar. La herramienta también extrae el texto de cada bloque `.container-fluid` para que el agente pueda resumir o analizar la información.
 
-## Configuration
+## Configuración por entorno
 
-Create a `.env` file (or export variables) with:
+Crea un archivo `.env` (o exporta variables) con:
 
 ```bash
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF
-TELEGRAM_WEBHOOK_URL=https://example.com/webhook  # optional, fallback to polling
-GOOGLE_API_KEY=your-gemini-key
+TELEGRAM_WEBHOOK_URL=https://example.com/webhook  # opcional, usa polling si se omite
+GOOGLE_API_KEY=tu-gemini-key
 GOOGLE_AGENT_MODEL=gemini-2.5-flash
 APP_ENV=development
 APP_LOG_LEVEL=INFO
@@ -60,10 +54,10 @@ docker run --rm \
   transmibot:latest
 ```
 
-If using webhooks, configure your reverse proxy to forward `POST /telegram/webhook` to the container (port 8080).
+Si usas webhooks, configura tu reverse proxy para dirigir `POST /telegram/webhook` hacia el contenedor (puerto 8080).
 
-## Next Steps
+## Próximos pasos sugeridos
 
-- Flesh out domain-specific handlers in `app/telegram/handlers.py`
-- Add integration tests that mock the Google ADK agent
-- Wire observability (metrics, tracing) if required by production environment
+- Ampliar los handlers específicos del dominio en `app/telegram/handlers.py`.
+- Añadir pruebas de integración que simulen al agente de Google ADK.
+- Integrar observabilidad (métricas, tracing) según las necesidades del entorno productivo.
