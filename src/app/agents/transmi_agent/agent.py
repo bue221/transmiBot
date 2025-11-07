@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator
 from typing import Optional
 
 from google.genai import types
@@ -67,9 +68,12 @@ async def _ensure_session() -> None:
 
 
 runner = Runner(agent=agent, app_name=APP_NAME, session_service=session_service)
-
-
-def _run_agent_sync(query: str) -> str:
+def _run_agent_sync(
+    query: str,
+    *,
+    loop: asyncio.AbstractEventLoop,
+    queue: asyncio.Queue[Optional[str]],
+) -> None:
     content = types.Content(role="user", parts=[types.Part(text=query)])
     events = runner.run(
         user_id=USER_ID,
@@ -78,16 +82,67 @@ def _run_agent_sync(query: str) -> str:
     )
 
     final_answer: Optional[str] = None
-    for event in events:
-        if event.is_final_response() and event.content:
-            final_answer = event.content.parts[0].text.strip()
 
-    if final_answer is None:
-        raise RuntimeError("Agent did not return a final response")
+    def _emit(message: str) -> None:
+        future = asyncio.run_coroutine_threadsafe(queue.put(message), loop)
+        future.result()
 
-    return final_answer
+    try:
+        previous_message: Optional[str] = None
+
+        for event in events:
+            event_content = getattr(event, "content", None)
+            if event_content is None:
+                continue
+
+            parts = getattr(event_content, "parts", [])
+            text_segments: list[str] = []
+
+            for part in parts:
+                part_text = getattr(part, "text", None)
+                if isinstance(part_text, str):
+                    normalized_text = part_text.strip()
+                    if normalized_text:
+                        text_segments.append(normalized_text)
+
+            if not text_segments:
+                continue
+
+            message_text = "\n\n".join(text_segments)
+
+            if previous_message != message_text:
+                _emit(message_text)
+                previous_message = message_text
+
+            if event.is_final_response():
+                final_answer = message_text
+
+        if final_answer is None:
+            raise RuntimeError("Agent did not return a final response")
+
+    finally:
+        asyncio.run_coroutine_threadsafe(queue.put(None), loop).result()
 
 
-async def invoke_agent(query: str) -> str:
+async def invoke_agent(query: str) -> AsyncIterator[str]:
     await _ensure_session()
-    return await asyncio.to_thread(_run_agent_sync, query)
+
+    loop = asyncio.get_running_loop()
+    message_queue: asyncio.Queue[Optional[str]] = asyncio.Queue()
+    worker_task = asyncio.create_task(
+        asyncio.to_thread(
+            _run_agent_sync,
+            query,
+            loop=loop,
+            queue=message_queue,
+        )
+    )
+
+    try:
+        while True:
+            item = await message_queue.get()
+            if item is None:
+                break
+            yield item
+    finally:
+        await worker_task

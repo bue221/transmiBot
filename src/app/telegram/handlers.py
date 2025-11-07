@@ -40,8 +40,6 @@ async def handle_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> No
     logger.exception("Unhandled exception in Telegram handler", exc_info=context.error)
 
 
-
-
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     
     if update.message is None:
@@ -49,62 +47,90 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
 
     chat_id = update.effective_chat.id
-    
-    message = await update.message.reply_text("Procesando ⏳")
-    
-    main_task = asyncio.create_task(invoke_agent(update.message.text))
-    
-    async def animate_message():
-        animation_frames = ["⏳", "⌛", "⏳", "⌛"]
+
+    status_message = await update.message.reply_text("Procesando ⏳")
+
+    stop_event = asyncio.Event()
+
+    async def animate_status_message() -> None:
+        animation_frames = ["⏳", "⌛"]
         frame_index = 0
-        while not main_task.done():
+
+        while not stop_event.is_set():
             try:
                 new_text = f"Procesando {animation_frames[frame_index]}"
-                await message.edit_text(new_text)
+                await status_message.edit_text(new_text)
                 frame_index = (frame_index + 1) % len(animation_frames)
-                
-                await asyncio.sleep(1) 
-                
-            except BadRequest as e:
-                if "Message is not modified" in str(e):
-                    pass
-                else:
-                    logger.warning(f"Error animando mensaje: {e}")
-                    break
-            except Exception as e:
-                logger.warning(f"Error inesperado en animate_message: {e}")
-                break
+                await asyncio.sleep(1)
+            except BadRequest as exc:
+                if "Message is not modified" not in str(exc):
+                    logger.warning("Error animando mensaje: %s", exc)
+                    return
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Error inesperado en animate_message: %s", exc)
+                return
 
-    async def keep_typing_action():
-        while not main_task.done():
+    async def send_typing_action() -> None:
+        while not stop_event.is_set():
             try:
-                await context.bot.send_chat_action(
-                    chat_id=chat_id, 
-                    action=ChatAction.TYPING
-                )
+                await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
                 await asyncio.sleep(4)
-            except Exception as e:
-                logger.warning(f"Error en keep_typing_action: {e}")
-                break
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Error en keep_typing_action: %s", exc)
+                return
 
-    anim_task = asyncio.create_task(animate_message())
-    typing_task = asyncio.create_task(keep_typing_action())
+    animate_task = asyncio.create_task(animate_status_message())
+    typing_task = asyncio.create_task(send_typing_action())
+
+    agent_stream = invoke_agent(update.message.text)
 
     try:
-        response = await main_task
-        
-        anim_task.cancel()
+        first_response = await agent_stream.__anext__()
+    except StopAsyncIteration:
+        stop_event.set()
+        animate_task.cancel()
         typing_task.cancel()
-
-        await message.edit_text(response)
-        
-    except Exception:
-        logger.exception("Agent invocation failed")
-        
-        anim_task.cancel()
-        typing_task.cancel()
-        await message.edit_text(
+        await asyncio.gather(animate_task, typing_task, return_exceptions=True)
+        await agent_stream.aclose()
+        await status_message.edit_text(
             "Lo siento, ocurrió un error al consultar al agente. Inténtalo de nuevo más tarde."
         )
+        logger.error("Agent stream completed without responses")
+        return
+    except Exception:
+        stop_event.set()
+        animate_task.cancel()
+        typing_task.cancel()
+        await asyncio.gather(animate_task, typing_task, return_exceptions=True)
+        logger.exception("Agent invocation failed before first response")
+        await status_message.edit_text(
+            "Lo siento, ocurrió un error al consultar al agente. Inténtalo de nuevo más tarde."
+        )
+        await agent_stream.aclose()
+        return
+
+    stop_event.set()
+    animate_task.cancel()
+    typing_task.cancel()
+    await asyncio.gather(animate_task, typing_task, return_exceptions=True)
+
+    await status_message.edit_text(first_response)
+
+    try:
+        async for response_text in agent_stream:
+            try:
+                await context.bot.send_message(chat_id=chat_id, text=response_text)
+            except Exception:
+                logger.warning(
+                    "Failed to send follow-up agent response",
+                    exc_info=True,
+                )
+    except Exception:
+        logger.exception("Agent invocation failed while streaming responses")
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="Lo siento, ocurrió un error al consultar al agente. Inténtalo de nuevo más tarde.",
+        )
     finally:
-        await asyncio.gather(anim_task, typing_task, return_exceptions=True)
+        stop_event.set()
+        await agent_stream.aclose()

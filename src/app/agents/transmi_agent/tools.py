@@ -12,6 +12,7 @@ from typing import Any
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from playwright.async_api import async_playwright
+from time import sleep
 
 
 logger = logging.getLogger(__name__)
@@ -23,10 +24,11 @@ _POST_LOAD_WAIT_MS: int = 7000
 _CONTAINER_SELECTOR = ".container-fluid"
 
 
-def get_current_time(city: str) -> dict[str, str]:
+async def get_current_time(city: str) -> dict[str, str]:
     """Mock tool that returns the current time in a specified city."""
+    # await sleep(10)r
 
-    return {"status": "success", "city": city, "time": "10:30 AM"}
+    return {"status": "success", "city": city, "time": "10:30 AM", "climate": "sunny"}
 
 
 async def capture_simit_screenshot(plate: str) -> dict[str, Any]:
@@ -40,20 +42,14 @@ async def capture_simit_screenshot(plate: str) -> dict[str, Any]:
         dictionary includes the error details and ``status`` is set to ``"error"``.
     """
 
-    if plate is None:
+    if not plate or not plate.strip():
         return {
             "status": "error",
             "error_type": "validation",
             "message": "Vehicle plate is required to capture the Simit screenshot.",
         }
 
-    normalized_plate = plate.strip().upper()
-    if not normalized_plate:
-        return {
-            "status": "error",
-            "error_type": "validation",
-            "message": "Vehicle plate cannot be empty.",
-        }
+    normalized_plate = plate.strip().upper().replace("-", "").replace(" ", "")
 
     target_url = _SIMIT_BASE_URL.format(plate=normalized_plate)
     screenshot_bytes: bytes | None = None
@@ -136,13 +132,6 @@ async def capture_simit_screenshot(plate: str) -> dict[str, Any]:
             "details": str(exc),
         }
 
-    if screenshot_bytes is None:
-        return {
-            "status": "error",
-            "error_type": "unexpected",
-            "message": "Failed to capture the Simit screenshot for an unknown reason.",
-        }
-
     screenshot_encoded = base64.b64encode(screenshot_bytes).decode("ascii")
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
@@ -175,9 +164,4 @@ async def capture_simit_screenshot(plate: str) -> dict[str, Any]:
         "url": target_url,
         "file_path": str(output_path),
         "container_text": container_texts or [],
-        "screenshot": {
-            "mime_type": "image/png",
-            "encoding": "base64",
-            "data": screenshot_encoded,
-        },
     }
