@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  transmibot:
+    # Instruye a Compose a construir la imagen
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: transmibot:latest
+    container_name: transmibot_live
+
+    # Carga las variables desde el archivo .env
+    env_file:
+      - .env
+
+    # Mapeo de puertos (Host:Contenedor)
+    ports:
+      - "8080:8080"
+
+    # ESTO ES LA CLAVE DE LA PERSISTENCIA:
+    # Asegura que el contenedor siempre se reinicie si se detiene
+    # o si el servidor Ubuntu se reinicia.
+    restart: always
