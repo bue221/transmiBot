@@ -1,4 +1,7 @@
-"""Service layer placeholder for future integrations (e.g., persistence, APIs)."""
+"""Service layer for application features (e.g., persistence, APIs, automation)."""
 
-__all__: list[str] = []
+from .simit import capture_simit_screenshot_service
+
+__all__: list[str] = ["capture_simit_screenshot_service"]
+
 

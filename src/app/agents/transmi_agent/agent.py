@@ -39,7 +39,7 @@ agent = LlmAgent(
     name="root_agent",
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=[get_current_time, capture_simit_screenshot],
+    tools=[capture_simit_screenshot],
 )
 
 session_service = InMemorySessionService()

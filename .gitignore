@@ -40,3 +40,5 @@ env/
 
 # Screenshots
 var/screenshots/
+
+*.egg-info/
