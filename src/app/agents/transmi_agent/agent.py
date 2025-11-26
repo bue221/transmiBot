@@ -5,15 +5,16 @@ import logging
 from collections.abc import AsyncIterator
 from typing import Optional
 
-from google.genai import types
-from google.adk.agents.llm_agent import LlmAgent, Agent
+from google.adk.agents.llm_agent import Agent, LlmAgent
 from google.adk.errors.already_exists_error import AlreadyExistsError
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
+from google.genai import types
 
-from .tools import capture_simit_screenshot, get_current_time
-from .prompts import AGENT_DESCRIPTION, AGENT_INSTRUCTION
 from app.config import get_settings
+
+from .prompts import AGENT_DESCRIPTION, AGENT_INSTRUCTION
+from .tools import capture_simit_screenshot, get_current_time, tomtom_route_with_traffic
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ root_agent = Agent(
     name="root_agent",
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=[get_current_time, capture_simit_screenshot],
+    tools=[get_current_time, capture_simit_screenshot, tomtom_route_with_traffic],
 )
 
 #### MAIN AGENT CODE ####
@@ -39,7 +40,7 @@ agent = LlmAgent(
     name="root_agent",
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=[capture_simit_screenshot],
+    tools=[capture_simit_screenshot, tomtom_route_with_traffic],
 )
 
 session_service = InMemorySessionService()

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import logging
 import asyncio
+import logging
 
-from telegram.error import BadRequest
 from telegram import Update
-from telegram.ext import ContextTypes
 from telegram.constants import ChatAction
+from telegram.error import BadRequest
+from telegram.ext import ContextTypes
 
 from app.agents.transmi_agent.agent import invoke_agent
 
@@ -41,7 +41,6 @@ async def handle_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    
     if update.message is None:
         logger.warning("Received text handler update without message: %s", update)
         return
@@ -129,7 +128,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         logger.exception("Agent invocation failed while streaming responses")
         await context.bot.send_message(
             chat_id=chat_id,
-            text="Lo siento, ocurrió un error al consultar al agente. Inténtalo de nuevo más tarde.",
+            text=(
+                "Lo siento, ocurrió un error al consultar al agente. "
+                "Inténtalo de nuevo más tarde."
+            ),
         )
     finally:
         stop_event.set()

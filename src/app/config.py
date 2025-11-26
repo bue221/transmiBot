@@ -6,7 +6,6 @@ from typing import Any, Literal, Optional
 from pydantic import Field, HttpUrl, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 _DEFAULT_ALLOWED_UPDATES: tuple[str, ...] = ("message", "callback_query")
 
 
@@ -20,7 +19,8 @@ def _normalize_allowed_updates(raw: object) -> tuple[str, ...]:
         candidates = [str(item).strip() for item in raw]
     else:
         raise ValueError(
-            "Invalid value for TELEGRAM_ALLOWED_UPDATES; provide comma-separated text or a sequence."
+            "Invalid value for TELEGRAM_ALLOWED_UPDATES; provide comma-separated text "
+            "or a sequence."
         )
 
     cleaned = tuple(item for item in candidates if item)
@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     google_api_key: str = Field(..., alias="GOOGLE_API_KEY")
     google_agent_model: str = Field(default="gemini-2.5-flash", alias="GOOGLE_AGENT_MODEL")
     google_agent_name: str = Field(default="transmibot-agent", alias="GOOGLE_AGENT_NAME")
+
+    tomtom_api_key: str = Field(..., alias="TOMTOM_API_KEY")
 
     port: int = Field(default=8080, alias="PORT")
 

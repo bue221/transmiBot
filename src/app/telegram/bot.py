@@ -2,7 +2,14 @@ from __future__ import annotations
 
 import logging
 
-from telegram.ext import  Application, ApplicationBuilder, CommandHandler, MessageHandler, filters
+from telegram.ext import (
+    Application,
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    filters,
+)
+
 from app.config import get_settings
 from app.telegram.handlers import handle_error, handle_help, handle_start, handle_text
 
