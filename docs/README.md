@@ -16,9 +16,9 @@ flowchart LR
     Handler[handlers.handle_text]
     AgentRuntime[transmi_agent.agent]
     Tools[transmi_agent.tools]
-    DB[app.db (SQLite)]
+    DB[app.db SQLite]
     Simit[Simit Web]
-    GoogleADK[(Google ADK)]
+    GoogleADK[Google ADK]
 
     User -->|Mensajes| BotAPI
     BotAPI -->|Webhook/Polling| AppMain
