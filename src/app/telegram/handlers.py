@@ -21,7 +21,9 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     # Pedimos el número de teléfono usando el teclado de Telegram para poder usarlo como ID.
     contact_button = KeyboardButton(text="Compartir mi teléfono 📱", request_contact=True)
-    reply_markup = ReplyKeyboardMarkup([[contact_button]], resize_keyboard=True, one_time_keyboard=True)
+    reply_markup = ReplyKeyboardMarkup(
+        [[contact_button]], resize_keyboard=True, one_time_keyboard=True
+    )
 
     await update.message.reply_text(
         "👋 ¡Hola! Soy *TransmiBot*, tu asistente de movilidad en Colombia.\n\n"
@@ -96,22 +98,35 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     stop_event = asyncio.Event()
 
     async def animate_status_message() -> None:
+        # Small delay before starting animation to avoid immediate edit after creation
+        await asyncio.sleep(0.5)
+        
         animation_frames = ["⏳", "⌛"]
-        frame_index = 0
+        frame_index = 1  # Start at 1 since we already showed ⏳
+        last_text = "Procesando ⏳"
 
         while not stop_event.is_set():
             try:
                 new_text = f"Procesando {animation_frames[frame_index]}"
-                await status_message.edit_text(new_text)
+                # Only edit if text actually changed to avoid 400 errors
+                if new_text != last_text:
+                    await status_message.edit_text(new_text)
+                    last_text = new_text
                 frame_index = (frame_index + 1) % len(animation_frames)
-                await asyncio.sleep(1)
+                await asyncio.sleep(1.5)  # Slightly longer delay to reduce edit frequency
             except BadRequest as exc:
-                if "Message is not modified" not in str(exc):
-                    logger.warning("Error animando mensaje: %s", exc)
-                    return
+                error_str = str(exc).lower()
+                # Telegram returns 400 for "message is not modified" or other edit failures
+                if "message is not modified" in error_str or "bad request" in error_str:
+                    # Silently continue - message might have been edited elsewhere or is unchanged
+                    await asyncio.sleep(1)  # Wait before next attempt
+                else:
+                    logger.debug("Error animando mensaje (non-critical): %s", exc)
+                    await asyncio.sleep(1)
             except Exception as exc:  # noqa: BLE001
-                logger.warning("Error inesperado en animate_message: %s", exc)
-                return
+                # Log but don't stop - let stop_event handle termination
+                logger.debug("Error inesperado en animate_message (non-critical): %s", exc)
+                await asyncio.sleep(1)  # Wait before retrying to avoid tight loop
 
     async def send_typing_action() -> None:
         while not stop_event.is_set():
@@ -161,8 +176,20 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     animate_task.cancel()
     typing_task.cancel()
     await asyncio.gather(animate_task, typing_task, return_exceptions=True)
+    
+    # Small delay to ensure animation task has fully stopped before editing
+    await asyncio.sleep(0.2)
 
-    await status_message.edit_text(first_response)
+    try:
+        await status_message.edit_text(first_response)
+    except BadRequest as exc:
+        # If edit fails (e.g., message was deleted or already modified), send new message
+        error_str = str(exc).lower()
+        if "message is not modified" in error_str or "bad request" in error_str:
+            logger.debug("Could not edit status message, sending new message instead")
+            await update.message.reply_text(first_response)
+        else:
+            raise
 
     try:
         async for response_text in agent_stream:

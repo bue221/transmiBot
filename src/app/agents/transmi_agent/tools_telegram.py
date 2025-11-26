@@ -12,26 +12,33 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from typing import Any
 
+from app.agents.transmi_agent.tools import (
+    capture_simit_screenshot as _base_capture_simit_screenshot,
+)
+from app.agents.transmi_agent.tools import (
+    tomtom_find_nearby_services as _base_tomtom_find_nearby_services,
+)
+from app.agents.transmi_agent.tools import (
+    tomtom_find_nearby_services_by_address as _base_tomtom_find_nearby_services_by_address,
+)
+from app.agents.transmi_agent.tools import (
+    tomtom_geocode_address as _base_tomtom_geocode_address,
+)
+from app.agents.transmi_agent.tools import (
+    tomtom_route_with_traffic as _base_tomtom_route_with_traffic,
+)
 from app.db.crud import (
     log_address_search_by_phone,
     log_plate_by_phone,
-)
-from app.agents.transmi_agent.tools import (
-    capture_simit_screenshot as _base_capture_simit_screenshot,
-    tomtom_find_nearby_services as _base_tomtom_find_nearby_services,
-    tomtom_find_nearby_services_by_address as _base_tomtom_find_nearby_services_by_address,
-    tomtom_geocode_address as _base_tomtom_geocode_address,
-    tomtom_route_with_traffic as _base_tomtom_route_with_traffic,
 )
 
 logger = logging.getLogger(__name__)
 
 # Thread-local storage to pass phone_number from handler to tools
 # This avoids polluting tool signatures while allowing logging
-import threading
-
 _context = threading.local()
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from collections.abc import AsyncIterator
 from typing import Optional
 
@@ -24,16 +25,31 @@ from .tools import (
 )
 from .tools_telegram import (
     capture_simit_screenshot as telegram_capture_simit_screenshot,
+)
+from .tools_telegram import (
     set_user_context,
+)
+from .tools_telegram import (
     tomtom_find_nearby_services as telegram_tomtom_find_nearby_services,
+)
+from .tools_telegram import (
     tomtom_find_nearby_services_by_address as telegram_tomtom_find_nearby_services_by_address,
+)
+from .tools_telegram import (
     tomtom_geocode_address as telegram_tomtom_geocode_address,
+)
+from .tools_telegram import (
     tomtom_route_with_traffic as telegram_tomtom_route_with_traffic,
 )
 
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
+
+# Ensure GOOGLE_API_KEY is available in the environment for Google ADK
+# Google ADK reads the API key from the environment variable automatically
+if "GOOGLE_API_KEY" not in os.environ:
+    os.environ["GOOGLE_API_KEY"] = settings.google_api_key
 
 # This agent is used to test with agent development kit web interface
 root_agent = Agent(
@@ -81,6 +97,21 @@ async def _ensure_session() -> None:
             USER_ID,
         )
 
+# Base agent for ADK testing (simple tools without database logging)
+agent = LlmAgent(
+    model=settings.google_agent_model,
+    name="root_agent",
+    description=AGENT_DESCRIPTION,
+    instruction=AGENT_INSTRUCTION,
+    tools=[
+        capture_simit_screenshot,
+        tomtom_route_with_traffic,
+        tomtom_find_nearby_services,
+        tomtom_geocode_address,
+        tomtom_find_nearby_services_by_address,
+    ],
+)
+
 # Separate agent for Telegram with database logging tools
 telegram_agent = LlmAgent(
     model=settings.google_agent_model,
@@ -96,6 +127,7 @@ telegram_agent = LlmAgent(
     ],
 )
 
+runner = Runner(agent=agent, app_name=APP_NAME, session_service=session_service)
 telegram_runner = Runner(agent=telegram_agent, app_name=APP_NAME, session_service=session_service)
 
 

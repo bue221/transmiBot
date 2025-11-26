@@ -11,8 +11,6 @@ docker-build:
 
 docker-run:
 	docker run --rm \
-		-e TELEGRAM_BOT_TOKEN \
-		-e GOOGLE_API_KEY \
 		-p 8080:8080 \
 		transmibot:latest
 
