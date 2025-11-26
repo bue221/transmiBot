@@ -9,15 +9,15 @@ from app.db.session import Base
 
 
 class User(Base):
-    """Application user identified primarily by phone number."""
+    """Application user identified by Telegram ID."""
 
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
-    phone_number = Column(String(50), unique=True, index=True, nullable=False)
+    telegram_id = Column(BigInteger, unique=True, index=True, nullable=False)
 
-    # Optional Telegram-related data (not used as primary identifier)
-    telegram_id = Column(BigInteger, index=True, nullable=True)
+    # Optional user data
+    phone_number = Column(String(50), nullable=True, index=True)
     username = Column(String(255), nullable=True)
     first_name = Column(String(255), nullable=True)
     last_name = Column(String(255), nullable=True)
@@ -35,17 +35,19 @@ class User(Base):
 
 
 class Interaction(Base):
-    """Represents a single message interaction from the user."""
+    """Represents a message interaction (user or assistant)."""
 
     __tablename__ = "interactions"
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
 
-    # Denormalized for easier querying by phone without joins.
-    phone_number = Column(String(50), index=True, nullable=False)
+    # Denormalized for easier querying by telegram_id without joins.
+    telegram_id = Column(BigInteger, index=True, nullable=False)
 
     message_text = Column(Text, nullable=False)
+    # 'user' for messages from the user, 'assistant' for bot responses
+    role = Column(String(20), nullable=False, default="user", index=True)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
     user = relationship("User", back_populates="interactions")
@@ -58,7 +60,7 @@ class Plate(Base):
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    phone_number = Column(String(50), index=True, nullable=False)
+    telegram_id = Column(BigInteger, index=True, nullable=False)
 
     plate = Column(String(20), nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
@@ -73,7 +75,7 @@ class AddressSearch(Base):
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    phone_number = Column(String(50), index=True, nullable=False)
+    telegram_id = Column(BigInteger, index=True, nullable=False)
 
     raw_query = Column(Text, nullable=False)
     context = Column(String(50), nullable=True)  # e.g. "geocode", "route", "nearby_by_address"

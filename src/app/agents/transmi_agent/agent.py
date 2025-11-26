@@ -136,12 +136,12 @@ def _run_agent_sync(
     *,
     loop: asyncio.AbstractEventLoop,
     queue: asyncio.Queue[Optional[str]],
-    phone_number: str | None = None,
+    telegram_id: int | None = None,
     use_telegram_tools: bool = False,
 ) -> None:
-    # Set user context for Telegram tools if phone_number is provided
-    if use_telegram_tools and phone_number:
-        set_user_context(phone_number)
+    # Set user context for Telegram tools if telegram_id is provided
+    if use_telegram_tools and telegram_id:
+        set_user_context(telegram_id)
 
     content = types.Content(role="user", parts=[types.Part(text=query)])
     active_runner = telegram_runner if use_telegram_tools else runner
@@ -195,13 +195,13 @@ def _run_agent_sync(
 
 
 async def invoke_agent(
-    query: str, phone_number: str | None = None, use_telegram_tools: bool = False
+    query: str, telegram_id: int | None = None, use_telegram_tools: bool = False
 ) -> AsyncIterator[str]:
-    """Invoke the agent with optional phone_number for database logging.
+    """Invoke the agent with optional telegram_id for database logging.
 
     Args:
         query: User's message text.
-        phone_number: Optional phone number for database logging (Telegram only).
+        telegram_id: Optional Telegram user ID for database logging (Telegram only).
         use_telegram_tools: If True, use tools with database logging. Default False for ADK testing.
 
     Returns:
@@ -217,7 +217,7 @@ async def invoke_agent(
             query,
             loop=loop,
             queue=message_queue,
-            phone_number=phone_number,
+            telegram_id=telegram_id,
             use_telegram_tools=use_telegram_tools,
         )
     )

@@ -1,7 +1,7 @@
 """Tool implementations for the TransmiBot agent when used from Telegram.
 
 These tools wrap the base tools from `tools.py` and add database logging
-for user interactions (plates, address searches) based on phone_number.
+for user interactions (plates, address searches) based on telegram_id.
 
 This module follows the Single Responsibility Principle:
 - Base tools in `tools.py`: pure functionality, no side effects, testable.
@@ -31,28 +31,28 @@ from app.agents.transmi_agent.tools import (
     tomtom_route_with_traffic as _base_tomtom_route_with_traffic,
 )
 from app.db.crud import (
-    log_address_search_by_phone,
-    log_plate_by_phone,
+    log_address_search_by_telegram_id,
+    log_plate_by_telegram_id,
 )
 
 logger = logging.getLogger(__name__)
 
-# Thread-local storage to pass phone_number from handler to tools
+# Thread-local storage to pass telegram_id from handler to tools
 # This avoids polluting tool signatures while allowing logging
 _context = threading.local()
 
 
-def set_user_context(phone_number: str | None) -> None:
-    """Set the current user's phone number in thread-local context.
+def set_user_context(telegram_id: int | None) -> None:
+    """Set the current user's telegram_id in thread-local context.
 
     This should be called from the Telegram handler before invoking the agent.
     """
-    _context.phone_number = phone_number
+    _context.telegram_id = telegram_id
 
 
-def get_user_context() -> str | None:
-    """Get the current user's phone number from thread-local context."""
-    return getattr(_context, "phone_number", None)
+def get_user_context() -> int | None:
+    """Get the current user's telegram_id from thread-local context."""
+    return getattr(_context, "telegram_id", None)
 
 
 async def capture_simit_screenshot(plate: str) -> dict[str, Any]:
@@ -64,14 +64,14 @@ async def capture_simit_screenshot(plate: str) -> dict[str, Any]:
 
     result = await _base_capture_simit_screenshot(plate=plate)
 
-    # Log plate usage if we have phone_number in context.
-    phone_number = get_user_context()
-    if phone_number and result.get("status") == "success":
+    # Log plate usage if we have telegram_id in context.
+    telegram_id = get_user_context()
+    if telegram_id and result.get("status") == "success":
         try:
             # Run sync DB operation in thread to avoid blocking event loop
-            await asyncio.to_thread(log_plate_by_phone, phone_number, plate)
+            await asyncio.to_thread(log_plate_by_telegram_id, telegram_id, plate)
         except Exception:  # noqa: BLE001
-            logger.exception("Failed to log plate lookup by phone")
+            logger.exception("Failed to log plate lookup by telegram_id")
 
     return result
 
@@ -89,18 +89,18 @@ async def tomtom_route_with_traffic(
     result = await _base_tomtom_route_with_traffic(origin=origin, destination=destination)
 
     # Log both origin and destination addresses when available.
-    phone_number = get_user_context()
-    if phone_number and result.get("status") == "success":
+    telegram_id = get_user_context()
+    if telegram_id and result.get("status") == "success":
         try:
             # Run sync DB operations in thread to avoid blocking event loop
             await asyncio.to_thread(
-                log_address_search_by_phone, phone_number, origin, "route_origin"
+                log_address_search_by_telegram_id, telegram_id, origin, "route_origin"
             )
             await asyncio.to_thread(
-                log_address_search_by_phone, phone_number, destination, "route_destination"
+                log_address_search_by_telegram_id, telegram_id, destination, "route_destination"
             )
         except Exception:  # noqa: BLE001
-            logger.exception("Failed to log route addresses by phone")
+            logger.exception("Failed to log route addresses by telegram_id")
 
     return result
 
@@ -124,15 +124,15 @@ async def tomtom_find_nearby_services(
         radius_meters=radius_meters,
     )
 
-    phone_number = get_user_context()
-    if phone_number and result.get("status") == "success":
+    telegram_id = get_user_context()
+    if telegram_id and result.get("status") == "success":
         try:
             # Run sync DB operation in thread to avoid blocking event loop
             await asyncio.to_thread(
-                log_address_search_by_phone, phone_number, f"nearby:{query}", "nearby_services"
+                log_address_search_by_telegram_id, telegram_id, f"nearby:{query}", "nearby_services"
             )
         except Exception:  # noqa: BLE001
-            logger.exception("Failed to log nearby services query by phone")
+            logger.exception("Failed to log nearby services query by telegram_id")
 
     return result
 
@@ -146,13 +146,15 @@ async def tomtom_geocode_address(address: str) -> dict[str, Any]:
 
     result = await _base_tomtom_geocode_address(address=address)
 
-    phone_number = get_user_context()
-    if phone_number and result.get("status") == "success":
+    telegram_id = get_user_context()
+    if telegram_id and result.get("status") == "success":
         try:
             # Run sync DB operation in thread to avoid blocking event loop
-            await asyncio.to_thread(log_address_search_by_phone, phone_number, address, "geocode")
+            await asyncio.to_thread(
+                log_address_search_by_telegram_id, telegram_id, address, "geocode"
+            )
         except Exception:  # noqa: BLE001
-            logger.exception("Failed to log geocode query by phone")
+            logger.exception("Failed to log geocode query by telegram_id")
 
     return result
 
@@ -174,15 +176,15 @@ async def tomtom_find_nearby_services_by_address(
         radius_meters=radius_meters,
     )
 
-    phone_number = get_user_context()
-    if phone_number and result.get("status") == "success":
+    telegram_id = get_user_context()
+    if telegram_id and result.get("status") == "success":
         try:
             # Run sync DB operation in thread to avoid blocking event loop
             await asyncio.to_thread(
-                log_address_search_by_phone, phone_number, address, "nearby_by_address"
+                log_address_search_by_telegram_id, telegram_id, address, "nearby_by_address"
             )
         except Exception:  # noqa: BLE001
-            logger.exception("Failed to log nearby-by-address query by phone")
+            logger.exception("Failed to log nearby-by-address query by telegram_id")
 
     return result
 

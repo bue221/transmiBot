@@ -9,7 +9,10 @@ from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 from app.agents.transmi_agent.agent import invoke_agent
-from app.db.crud import get_or_create_user_by_phone, log_interaction_by_phone
+from app.db.crud import (
+    get_or_create_user_by_telegram_id,
+    log_interaction_by_telegram_id,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +52,39 @@ async def handle_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     )
 
 
+async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle when user shares their phone number."""
+    if update.message is None or update.message.contact is None:
+        return
+
+    contact = update.message.contact
+    phone_number = contact.phone_number
+    user = update.effective_user
+    telegram_id = user.id if user else None
+
+    if telegram_id:
+        # Register/update user with phone number
+        try:
+            await asyncio.to_thread(
+                get_or_create_user_by_telegram_id,
+                telegram_id,
+                phone_number=phone_number,
+                username=user.username if user else None,
+                first_name=user.first_name if user else None,
+                last_name=user.last_name if user else None,
+            )
+            await update.message.reply_text(
+                "✅ ¡Gracias por compartir tu número! "
+                "Ahora puedo personalizar mejor tu experiencia."
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to register user with phone number")
+            await update.message.reply_text(
+                "⚠️ Hubo un problema al registrar tu número. "
+                "Puedes seguir usando el bot normalmente."
+            )
+
+
 async def handle_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.exception("Unhandled exception in Telegram handler", exc_info=context.error)
 
@@ -59,39 +95,42 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
 
     chat_id = update.effective_chat.id
+    user = update.effective_user
+    telegram_id = user.id if user else None
+
+    if not telegram_id:
+        logger.warning("Received message without telegram_id: %s", update)
+        return
 
     # Intentamos obtener el teléfono desde el contacto compartido o desde el contexto.
     phone_number: str | None = None
     if update.message.contact and update.message.contact.phone_number:
         phone_number = update.message.contact.phone_number
-    else:
-        # Si en el futuro guardas el teléfono en context.user_data, puedes recuperarlo aquí.
-        phone_number = context.user_data.get("phone_number") if context is not None else None
 
-    # Sincronizamos/creamos el usuario cuando tengamos teléfono.
-    if phone_number:
-        try:
-            user = update.effective_user
-            await asyncio.to_thread(
-                get_or_create_user_by_phone,
-                phone_number,
-                telegram_id=user.id if user else None,
-                username=user.username if user else None,
-                first_name=user.first_name if user else None,
-                last_name=user.last_name if user else None,
-            )
-        except Exception:  # noqa: BLE001
-            logger.exception("Failed to upsert user by phone")
+    # Siempre registramos/creamos el usuario usando telegram_id
+    try:
+        await asyncio.to_thread(
+            get_or_create_user_by_telegram_id,
+            telegram_id,
+            phone_number=phone_number,
+            username=user.username if user else None,
+            first_name=user.first_name if user else None,
+            last_name=user.last_name if user else None,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("Failed to upsert user")
 
-        # Registramos la interacción ligada al teléfono.
-        try:
-            await asyncio.to_thread(
-                log_interaction_by_phone,
-                phone_number,
-                update.message.text or "",
-            )
-        except Exception:  # noqa: BLE001
-            logger.exception("Failed to log interaction by phone")
+    # Registramos el mensaje del usuario
+    try:
+        message_text = update.message.text or ""
+        await asyncio.to_thread(
+            log_interaction_by_telegram_id,
+            telegram_id,
+            message_text,
+            role="user",
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("Failed to log user interaction")
 
     status_message = await update.message.reply_text("Procesando ⏳")
 
@@ -140,11 +179,11 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     animate_task = asyncio.create_task(animate_status_message())
     typing_task = asyncio.create_task(send_typing_action())
 
-    # Use Telegram tools with database logging if we have phone_number
+    # Use Telegram tools with database logging (always enabled now)
     agent_stream = invoke_agent(
         update.message.text,
-        phone_number=phone_number,
-        use_telegram_tools=phone_number is not None,
+        telegram_id=telegram_id,
+        use_telegram_tools=True,
     )
 
     try:
@@ -180,6 +219,17 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     # Small delay to ensure animation task has fully stopped before editing
     await asyncio.sleep(0.2)
 
+    # Guardamos la primera respuesta del asistente
+    try:
+        await asyncio.to_thread(
+            log_interaction_by_telegram_id,
+            telegram_id,
+            first_response,
+            role="assistant",
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("Failed to log assistant first response")
+
     try:
         await status_message.edit_text(first_response)
     except BadRequest as exc:
@@ -195,6 +245,16 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         async for response_text in agent_stream:
             try:
                 await context.bot.send_message(chat_id=chat_id, text=response_text)
+                # Guardamos cada respuesta adicional del asistente
+                try:
+                    await asyncio.to_thread(
+                        log_interaction_by_telegram_id,
+                        telegram_id,
+                        response_text,
+                        role="assistant",
+                    )
+                except Exception:  # noqa: BLE001
+                    logger.exception("Failed to log assistant follow-up response")
             except Exception:
                 logger.warning(
                     "Failed to send follow-up agent response",
