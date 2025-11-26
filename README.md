@@ -4,7 +4,7 @@
 
 ## Propósito
 
-TransmiBot es un chatbot para Telegram que delega sus respuestas a un agente de Google ADK (Gemini) para asistir con temas de movilidad en Colombia.
+TransmiBot es un chatbot para Telegram que delega sus respuestas a un agente de Google ADK (Gemini) para asistir con temas de movilidad en Colombia. El bot puede calcular rutas con tráfico, buscar lugares cercanos y consultar el estado de multas en Simit.
 
 ## Stack
 
@@ -31,6 +31,8 @@ uv run python -m app.main
 El paso `playwright install` descarga los binarios del navegador necesarios para la herramienta de capturas Simit. Consulta la [introducción de Playwright para Python](https://playwright.dev/python/docs/intro) si necesitas más opciones.
 
 Las capturas de Simit se guardan en `var/screenshots/` con nombres timestamp para trazabilidad. La automatización espera ~7 segundos antes de capturar la imagen para asegurar que el contenido dinámico haya terminado de cargar. La herramienta también extrae el texto de cada bloque `.container-fluid` para que el agente pueda resumir o analizar la información.
+
+El bot utiliza la API de TomTom para calcular rutas con información de tráfico en tiempo real y buscar lugares cercanos (gasolineras, parqueaderos, etc.) por coordenadas o dirección.
 
 ## Configuración por entorno
 

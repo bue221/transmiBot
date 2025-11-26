@@ -22,6 +22,14 @@ from .tools import (
     tomtom_geocode_address,
     tomtom_route_with_traffic,
 )
+from .tools_telegram import (
+    capture_simit_screenshot as telegram_capture_simit_screenshot,
+    set_user_context,
+    tomtom_find_nearby_services as telegram_tomtom_find_nearby_services,
+    tomtom_find_nearby_services_by_address as telegram_tomtom_find_nearby_services_by_address,
+    tomtom_geocode_address as telegram_tomtom_geocode_address,
+    tomtom_route_with_traffic as telegram_tomtom_route_with_traffic,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,20 +57,6 @@ APP_NAME = "agents"
 USER_ID = "1234"
 SESSION_ID = "session1234"
 
-agent = LlmAgent(
-    model=settings.google_agent_model,
-    name="root_agent",
-    description=AGENT_DESCRIPTION,
-    instruction=AGENT_INSTRUCTION,
-    tools=[
-        capture_simit_screenshot,
-        tomtom_route_with_traffic,
-        tomtom_find_nearby_services,
-        tomtom_geocode_address,
-        tomtom_find_nearby_services_by_address,
-    ],
-)
-
 session_service = InMemorySessionService()
 
 
@@ -87,16 +81,39 @@ async def _ensure_session() -> None:
             USER_ID,
         )
 
+# Separate agent for Telegram with database logging tools
+telegram_agent = LlmAgent(
+    model=settings.google_agent_model,
+    name="root_agent",
+    description=AGENT_DESCRIPTION,
+    instruction=AGENT_INSTRUCTION,
+    tools=[
+        telegram_capture_simit_screenshot,
+        telegram_tomtom_route_with_traffic,
+        telegram_tomtom_find_nearby_services,
+        telegram_tomtom_geocode_address,
+        telegram_tomtom_find_nearby_services_by_address,
+    ],
+)
 
-runner = Runner(agent=agent, app_name=APP_NAME, session_service=session_service)
+telegram_runner = Runner(agent=telegram_agent, app_name=APP_NAME, session_service=session_service)
+
+
 def _run_agent_sync(
     query: str,
     *,
     loop: asyncio.AbstractEventLoop,
     queue: asyncio.Queue[Optional[str]],
+    phone_number: str | None = None,
+    use_telegram_tools: bool = False,
 ) -> None:
+    # Set user context for Telegram tools if phone_number is provided
+    if use_telegram_tools and phone_number:
+        set_user_context(phone_number)
+
     content = types.Content(role="user", parts=[types.Part(text=query)])
-    events = runner.run(
+    active_runner = telegram_runner if use_telegram_tools else runner
+    events = active_runner.run(
         user_id=USER_ID,
         session_id=SESSION_ID,
         new_message=content,
@@ -145,7 +162,19 @@ def _run_agent_sync(
         asyncio.run_coroutine_threadsafe(queue.put(None), loop).result()
 
 
-async def invoke_agent(query: str) -> AsyncIterator[str]:
+async def invoke_agent(
+    query: str, phone_number: str | None = None, use_telegram_tools: bool = False
+) -> AsyncIterator[str]:
+    """Invoke the agent with optional phone_number for database logging.
+
+    Args:
+        query: User's message text.
+        phone_number: Optional phone number for database logging (Telegram only).
+        use_telegram_tools: If True, use tools with database logging. Default False for ADK testing.
+
+    Returns:
+        Async iterator of response text chunks.
+    """
     await _ensure_session()
 
     loop = asyncio.get_running_loop()
@@ -156,6 +185,8 @@ async def invoke_agent(query: str) -> AsyncIterator[str]:
             query,
             loop=loop,
             queue=message_queue,
+            phone_number=phone_number,
+            use_telegram_tools=use_telegram_tools,
         )
     )
 

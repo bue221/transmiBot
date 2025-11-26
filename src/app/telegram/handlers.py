@@ -25,10 +25,10 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     await update.message.reply_text(
         "👋 ¡Hola! Soy *TransmiBot*, tu asistente de movilidad en Colombia.\n\n"
-        "🚌 Puedo ayudarte a planear rutas de TransMilenio, resolver dudas de transporte y"
-        " consultar el estado de multas en Simit.\n"
-        "🔧 Cuando haga falta, usaré herramientas integradas para obtener la hora actual o"
-        " capturar comprobantes del portal Simit.\n\n"
+        "🚗 Puedo ayudarte a:\n"
+        "• Calcular rutas con información de tráfico en tiempo real\n"
+        "• Buscar lugares cercanos (gasolineras, parqueaderos, etc.)\n"
+        "• Consultar el estado de multas en Simit por placa de vehículo\n\n"
         "Para personalizar mejor tu experiencia, puedes compartir tu número de teléfono "
         "tocando el botón de abajo (opcional).",
         parse_mode="Markdown",
@@ -41,8 +41,8 @@ async def handle_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         "ℹ️ *Comandos disponibles*\n"
         "• /start – Mensaje de bienvenida y resumen del bot.\n"
         "• /help – Muestra esta lista de comandos.\n\n"
-        "También puedes escribirme directamente para: planear rutas de TransMilenio,"
-        " conocer horarios o consultar el estado de tu vehículo en Simit.",
+        "También puedes escribirme directamente para: calcular rutas con tráfico,"
+        " buscar lugares cercanos o consultar el estado de multas de tu vehículo en Simit.",
         parse_mode="Markdown",
     )
 
@@ -125,7 +125,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     animate_task = asyncio.create_task(animate_status_message())
     typing_task = asyncio.create_task(send_typing_action())
 
-    agent_stream = invoke_agent(update.message.text)
+    # Use Telegram tools with database logging if we have phone_number
+    agent_stream = invoke_agent(
+        update.message.text,
+        phone_number=phone_number,
+        use_telegram_tools=phone_number is not None,
+    )
 
     try:
         first_response = await agent_stream.__anext__()
