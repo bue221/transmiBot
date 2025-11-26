@@ -57,7 +57,11 @@ def _get_api_key() -> tuple[str | None, dict[str, Any] | None]:
     return api_key, None
 
 
-async def _make_request(url: str, params: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+async def _make_request(
+    url: str,
+    params: dict[str, Any],
+    context: dict[str, Any],
+) -> dict[str, Any]:
     """Make an HTTP GET request and handle errors consistently."""
     try:
         async with httpx.AsyncClient(timeout=_DEFAULT_TIMEOUT_SECONDS) as client:
@@ -196,7 +200,10 @@ async def get_route_traffic_summary(
     try:
         data = response.json()
     except ValueError as exc:
-        logger.exception("Failed to decode response", extra={"origin": origin_coords, "destination": dest_coords})
+        logger.exception(
+            "Failed to decode response",
+            extra={"origin": origin_coords, "destination": dest_coords},
+        )
         return _error_response("parse", "No se pudo interpretar la respuesta.", str(exc))
 
     route_data = _parse_route_data(data)
