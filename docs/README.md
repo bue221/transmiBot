@@ -16,6 +16,7 @@ flowchart LR
     Handler[handlers.handle_text]
     AgentRuntime[transmi_agent.agent]
     Tools[transmi_agent.tools]
+    DB[app.db (SQLite)]
     Simit[Simit Web]
     GoogleADK[(Google ADK)]
 
@@ -24,6 +25,7 @@ flowchart LR
     AppMain --> TgApp
     TgApp --> Handler
     Handler -->|await| AgentRuntime
+    Handler -->|registra uso| DB
     AgentRuntime -->|Runner| GoogleADK
     AgentRuntime -->|Invoca| Tools
     Tools -->|Playwright| Simit
@@ -36,7 +38,18 @@ flowchart LR
 - `app.agents.transmi_agent.agent` prepara el agente del ADK, garantiza la
   sesión y ejecuta la inferencia en segundo plano.
 - `app.agents.transmi_agent.tools` implementa las herramientas disponibles para
-  el agente (hora actual y captura Simit).
+  el agente (hora actual, captura Simit y consultas a TomTom para rutas y
+  servicios cercanos).
+
+## CI/CD y GitHub Actions
+
+- **Repositorio Git:** sigue Git Flow con ramas `main`, `develop` y `feature/*`.
+- **CI con GitHub Actions:** existe un workflow (`.github/workflows/docker-build.yml`)
+  que construye la imagen Docker en cada `push` o `pull_request` sobre `main` y
+  `develop` usando `docker/build-push-action@v6` (sin publicar aún la imagen).
+- **CD manual:** el despliegue a Cloud Run u otros entornos se realiza de forma
+  manual mediante comandos documentados en `deployment.md`, lo que permite
+  revisiones y aprobaciones explícitas.
 
 ## Flujo Conversacional Simplificado
 
@@ -77,4 +90,5 @@ Más detalles en los archivos complementarios:
 - `modules.md`: descripción de componentes y dependencias.
 - `libraries.md`: bibliotecas y servicios externos.
 - `operations.md`: despliegue, configuración y requisitos operativos.
+ - `deployment.md`: detalles del flujo de despliegue en Cloud Run y del CI/CD.
 

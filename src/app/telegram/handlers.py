@@ -3,25 +3,36 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from telegram import Update
+from telegram import KeyboardButton, ReplyKeyboardMarkup, Update
 from telegram.constants import ChatAction
 from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 from app.agents.transmi_agent.agent import invoke_agent
+from app.db.crud import get_or_create_user_by_phone, log_interaction_by_phone
 
 logger = logging.getLogger(__name__)
 
 
 async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None:
+        logger.warning("Received /start without message: %s", update)
+        return
+
+    # Pedimos el número de teléfono usando el teclado de Telegram para poder usarlo como ID.
+    contact_button = KeyboardButton(text="Compartir mi teléfono 📱", request_contact=True)
+    reply_markup = ReplyKeyboardMarkup([[contact_button]], resize_keyboard=True, one_time_keyboard=True)
+
     await update.message.reply_text(
         "👋 ¡Hola! Soy *TransmiBot*, tu asistente de movilidad en Colombia.\n\n"
         "🚌 Puedo ayudarte a planear rutas de TransMilenio, resolver dudas de transporte y"
         " consultar el estado de multas en Simit.\n"
         "🔧 Cuando haga falta, usaré herramientas integradas para obtener la hora actual o"
         " capturar comprobantes del portal Simit.\n\n"
-        "¿Qué quieres hacer hoy?",
+        "Para personalizar mejor tu experiencia, puedes compartir tu número de teléfono "
+        "tocando el botón de abajo (opcional).",
         parse_mode="Markdown",
+        reply_markup=reply_markup,
     )
 
 
@@ -46,6 +57,39 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
 
     chat_id = update.effective_chat.id
+
+    # Intentamos obtener el teléfono desde el contacto compartido o desde el contexto.
+    phone_number: str | None = None
+    if update.message.contact and update.message.contact.phone_number:
+        phone_number = update.message.contact.phone_number
+    else:
+        # Si en el futuro guardas el teléfono en context.user_data, puedes recuperarlo aquí.
+        phone_number = context.user_data.get("phone_number") if context is not None else None
+
+    # Sincronizamos/creamos el usuario cuando tengamos teléfono.
+    if phone_number:
+        try:
+            user = update.effective_user
+            await asyncio.to_thread(
+                get_or_create_user_by_phone,
+                phone_number,
+                telegram_id=user.id if user else None,
+                username=user.username if user else None,
+                first_name=user.first_name if user else None,
+                last_name=user.last_name if user else None,
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to upsert user by phone")
+
+        # Registramos la interacción ligada al teléfono.
+        try:
+            await asyncio.to_thread(
+                log_interaction_by_phone,
+                phone_number,
+                update.message.text or "",
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to log interaction by phone")
 
     status_message = await update.message.reply_text("Procesando ⏳")
 

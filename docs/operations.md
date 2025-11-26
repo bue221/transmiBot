@@ -39,6 +39,22 @@ cp .env.example .env  # ajustar credenciales
   usuario.
 - La herramienta `capture_simit_screenshot` diferencia errores de validación,
   timeout, Playwright e I/O, permitiendo diagnósticos rápidos.
+- Las operaciones de base de datos (`app.db.crud`) encapsulan errores en un
+  decorador común, garantizando que fallos de escritura o conexión no
+  interrumpan el flujo de conversación; los errores se registran y el bot
+  continúa operando.
+
+## Operación del CI/CD
+
+- **Workflow de build:** el job `docker-build` en GitHub Actions construye la
+  imagen Docker en cada cambio relevante (`main`/`develop`) y sirve como
+  “smoke test” del entorno de contenedor.
+- **Revisión de fallos:** ante un fallo en el workflow, revisar los logs del
+  paso `docker/build-push-action` para identificar problemas en dependencias,
+  cambios en `Dockerfile` o binarios de Playwright.
+- **Despliegue controlado:** aunque el CI no despliega automáticamente, se
+  recomienda utilizar sólo imágenes que hayan pasado por el workflow de build
+  para entornos productivos o de staging.
 
 ## Consideraciones de rendimiento
 
@@ -46,6 +62,10 @@ cp .env.example .env  # ajustar credenciales
   desplegar en entornos con suficiente CPU para navegadores headless.
 - Las capturas se almacenan en `var/screenshots`; implementar rotación o
   almacenamiento externo (S3, GCS) para ambientes productivos.
+- La base de datos SQLite (`var/transmibot.db`) está pensada para volúmenes
+  bajos/medios de uso y para un único contenedor; para escenarios de alta
+  concurrencia o múltiples réplicas, se recomienda migrar a un motor externo
+  (PostgreSQL, Cloud SQL) manteniendo la misma capa `app.db`.
 - `invoke_agent` delega el runner a un hilo (`asyncio.to_thread`) evitando
   bloquear el loop principal de Telegram.
 

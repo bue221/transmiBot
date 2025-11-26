@@ -54,7 +54,32 @@ sequenceDiagram
 3. **Despliegue:** `gcloud run deploy transmibot --image REGION-docker.pkg.dev/PROJECT/transmibot/bot:TAG --platform managed --region REGION --memory 1Gi --allow-unauthenticated`
 4. **Webhook:** Configurar el webhook de Telegram (por CLI o API) apuntando a `https://SERVICE-REGION-...run.app/telegram/webhook`.
 
-El pipeline CI/CD automatiza estas etapas, pero la secuencia conceptual se mantiene: construir → publicar → desplegar → registrar webhook.
+El pipeline de CI/CD basado en GitHub Actions puede automatizar parte o todas estas etapas,
+pero la secuencia conceptual se mantiene: construir → publicar → desplegar → registrar webhook.
+
+## CI/CD con GitHub Actions
+
+Este repositorio incluye un workflow básico de GitHub Actions (`.github/workflows/docker-build.yml`)
+orientado a **integración continua**:
+
+- **Evento:** `push` y `pull_request` sobre `main` y `develop`.
+- **Objetivo:** construir la imagen Docker definida en `Dockerfile` mediante
+  `docker/build-push-action@v6` (actualmente sin publicarla).
+- **Beneficio:** detectar de forma temprana errores de build, cambios incompatibles
+  en dependencias o roturas en el `Dockerfile`.
+
+Por diseño, el **despliegue (CD)** sigue siendo un paso manual controlado por la persona
+desarrolladora, a través de comandos `gcloud run deploy` o ejecución en un host Docker.
+Esto facilita:
+
+- Revisión previa de cambios en entornos de staging.
+- Aplicar prácticas de aprobación manual (p.ej. `git tag` o releases).
+
+En una siguiente iteración, este workflow puede ampliarse para:
+
+- Hacer `push` de la imagen al registro de contenedores.
+- Automatizar el despliegue a Cloud Run (incluyendo pasos de smoke tests).
+- Integrar notificaciones (Slack, correo) con el resultado de cada ejecución.
 
 ## Configuración en Ejecución
 

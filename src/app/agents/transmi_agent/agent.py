@@ -14,7 +14,14 @@ from google.genai import types
 from app.config import get_settings
 
 from .prompts import AGENT_DESCRIPTION, AGENT_INSTRUCTION
-from .tools import capture_simit_screenshot, get_current_time, tomtom_route_with_traffic
+from .tools import (
+    capture_simit_screenshot,
+    get_current_time,
+    tomtom_find_nearby_services,
+    tomtom_find_nearby_services_by_address,
+    tomtom_geocode_address,
+    tomtom_route_with_traffic,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +33,14 @@ root_agent = Agent(
     name="root_agent",
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=[get_current_time, capture_simit_screenshot, tomtom_route_with_traffic],
+    tools=[
+        get_current_time,
+        capture_simit_screenshot,
+        tomtom_route_with_traffic,
+        tomtom_find_nearby_services,
+        tomtom_geocode_address,
+        tomtom_find_nearby_services_by_address,
+    ],
 )
 
 #### MAIN AGENT CODE ####
@@ -40,7 +54,13 @@ agent = LlmAgent(
     name="root_agent",
     description=AGENT_DESCRIPTION,
     instruction=AGENT_INSTRUCTION,
-    tools=[capture_simit_screenshot, tomtom_route_with_traffic],
+    tools=[
+        capture_simit_screenshot,
+        tomtom_route_with_traffic,
+        tomtom_find_nearby_services,
+        tomtom_geocode_address,
+        tomtom_find_nearby_services_by_address,
+    ],
 )
 
 session_service = InMemorySessionService()

@@ -12,7 +12,7 @@ La aplicación sigue una **arquitectura monolítica** dockerizada, expuesta como
 treemap-beta
     "transmiBot"
         "src"
-            "app"
+        "app"
                 "agents"
                     "transmi_agent"
                         "agent.py": 15
@@ -21,6 +21,10 @@ treemap-beta
                 "telegram"
                     "bot.py": 10
                     "handlers.py": 20
+                "db"
+                    "session.py": 8
+                    "models.py": 16
+                    "crud.py": 20
                 "main.py": 12
                 "config.py": 15
                 "exceptions.py": 8
@@ -65,12 +69,14 @@ architecture-beta
     service webhook_endpoint(server)[Webhook Endpoint] in transmibot_container
     service telegram_bot(server)[Telegram Bot Handler] in transmibot_container
     service google_adk(server)[Google ADK Agent] in transmibot_container
+    service sqlite_db(db)[SQLite DB (usuarios e interacciones)] in transmibot_container
 
      telegram_api:L --> R:cloudflare_tunnel
     cloudflare_tunnel:T --> B:cloudflared
     cloudflared:T --> B:webhook_endpoint
     webhook_endpoint:T --> B:telegram_bot
     telegram_bot:T --> B:google_adk
+    telegram_bot:T --> B:sqlite_db
     google_adk:T --> B:google_gemini
     google_adk:T --> B:playwright_service
     playwright_service:T --> B:simit_web
@@ -169,6 +175,29 @@ El archivo `docker-compose.yml` configura:
 - Carga de variables de entorno desde `.env`.
 - Persistencia de volúmenes para capturas.
 
+### CI/CD con GitHub Actions
+
+Para garantizar que la imagen de TransmiBot se construye de forma repetible en cada cambio relevante, se utiliza un workflow de **GitHub Actions** (`.github/workflows/docker-build.yml`) que actúa como fase de _Continuous Integration_.
+
+```mermaid
+flowchart LR
+    Dev[Developer] -->|push / PR a main,develop| GH[GitHub]
+    GH -->|dispara workflow Docker build| Actions[GitHub Actions]
+    Actions -->|docker build| Image[Imagen Docker]
+    Image -->|validación / pruebas manuales| Deploy[Despliegue (Cloud Run / Docker host)]
+```
+
+- **Disparadores:** `push` y `pull_request` sobre `main` y `develop`.
+- **Job principal (`docker-build`):**
+  - Usa `actions/checkout@v4` para obtener el código.
+  - Configura `docker/setup-buildx-action@v3`.
+  - Lanza `docker/build-push-action@v6` para construir la imagen usando `Dockerfile`.
+- **Estado actual:** el workflow **no publica** la imagen en un registro ni realiza despliegues automáticos (`push: false`), lo que reduce superficie de error y mantiene el CD como paso explícito controlado por la persona desarrolladora.
+- **Estrategia recomendada de evolución:** en el futuro, se puede extender este flujo para:
+  - Hacer `push` de la imagen a Artifact Registry / Docker Hub.
+  - Desencadenar despliegues a Cloud Run u otra plataforma basada en contenedores.
+  - Añadir pasos de linters y tests automatizados antes de construir la imagen.
+
 ## Arquitectura de Software (Detalle)
 
 ```mermaid
@@ -207,15 +236,38 @@ flowchart TD
 
 ## Base de datos
 
-El proyecto actual **no utiliza una base de datos persistente**. Se confía en:
+La aplicación utiliza una base de datos **SQLite** ligera para registrar información básica de uso y mantener trazabilidad mínima por número de teléfono:
 
-- `InMemorySessionService` de Google ADK para almacenar sesiones temporales del agente.
-- Sistema de archivos (`var/screenshots/`) para guardar capturas de Simit.
+- Archivo de base de datos: `var/transmibot.db`.
+- Motor: `SQLAlchemy` con `SessionLocal` y `Base` definidos en `app.db.session`.
+- Inicialización: `app.main` invoca `init_db()` al arrancar para crear tablas de forma idempotente.
 
-Si se requiriera una base de datos en el futuro (por ejemplo, para persistir historial de conversaciones o caché de rutas), se sugiere:
+### Modelo lógico
 
-- **Lógico**: colecciones/tablas para usuarios, consultas y resultados de tools.
-- **Físico**: servicio gestionado (p.ej. Firestore, PostgreSQL). Integración vía capa de repositorios en `app/services/` conectada al backend.
+Las tablas principales son:
+
+- **`users`**:
+  - Identificada por `phone_number` (clave lógica principal).
+  - Campos adicionales: `telegram_id`, `username`, `first_name`, `last_name`, `created_at`, `last_seen_at`.
+- **`interactions`**:
+  - Una fila por mensaje que el usuario envía al bot.
+  - Referencia a `users` mediante `user_id` y campo denormalizado `phone_number` para consultas rápidas.
+- **`plates`**:
+  - Registra placas consultadas en flujos Simit.
+  - Incluye `user_id`, `phone_number`, `plate`, `created_at`.
+- **`address_searches`**:
+  - Guarda las direcciones y consultas relacionadas con TomTom (geocoding, rutas, lugares cercanos).
+  - Campos: `user_id`, `phone_number`, `raw_query`, `context`, `created_at`.
+
+### Flujo de datos hacia la BD
+
+1. En los handlers de Telegram, cuando el usuario comparte su contacto, se extrae `phone_number` y se sincroniza un registro en `users`.
+2. Cada mensaje de texto se registra como una entrada en `interactions` asociada al teléfono.
+3. Las tools del agente (`capture_simit_screenshot`, `tomtom_*`) aceptan de forma opcional `phone_number` y, si está presente, registran:
+   - Placas consultadas en `plates`.
+   - Direcciones origen/destino o búsquedas de lugares en `address_searches`, con un campo `context` que indica el tipo de consulta (`geocode`, `route_origin`, `route_destination`, `nearby_services`, etc.).
+
+La estrategia de manejo de errores es defensiva: cualquier fallo de la BD se captura, se loguea y **no** bloquea el flujo principal del bot (el usuario sigue recibiendo respuesta).
 
 ## Backend
 

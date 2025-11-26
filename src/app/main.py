@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 
 from app.config import get_settings
+from app.db import init_db
 from app.exceptions import ConfigurationError, ExternalServiceError
 from app.health import HealthServer, start_health_server
 from app.logging_config import configure_logging
@@ -10,6 +11,8 @@ from app.telegram.bot import build_application
 
 def main() -> None:
     configure_logging()
+    # Ensure database schema is initialized before serving traffic.
+    init_db()
     settings = get_settings()
     logger = logging.getLogger(__name__)
     logger.info("Bootstrapping TransmiBot", extra={"env": settings.environment})
