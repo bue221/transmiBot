@@ -69,7 +69,7 @@ architecture-beta
     service webhook_endpoint(server)[Webhook Endpoint] in transmibot_container
     service telegram_bot(server)[Telegram Bot Handler] in transmibot_container
     service google_adk(server)[Google ADK Agent] in transmibot_container
-    service sqlite_db(db)[SQLite DB (usuarios e interacciones)] in transmibot_container
+    service sqlite_db(db)[SQLite DB usuarios e interacciones] in transmibot_container
 
      telegram_api:L --> R:cloudflare_tunnel
     cloudflare_tunnel:T --> B:cloudflared
