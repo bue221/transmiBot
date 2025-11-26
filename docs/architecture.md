@@ -184,7 +184,7 @@ flowchart LR
     Dev[Developer] -->|push / PR a main,develop| GH[GitHub]
     GH -->|dispara workflow Docker build| Actions[GitHub Actions]
     Actions -->|docker build| Image[Imagen Docker]
-    Image -->|validación / pruebas manuales| Deploy[Despliegue (Cloud Run / Docker host)]
+    Image -->|validación / pruebas manuales| Deploy[Despliegue Docker host]
 ```
 
 - **Disparadores:** `push` y `pull_request` sobre `main` y `develop`.
@@ -220,7 +220,7 @@ flowchart TD
         Config[app.config]
     end
 
-    GoogleADK[(Google ADK Runner)]
+    GoogleADK[Google ADK Runner]
     Simit[Simit Web]
 
     User -->|Mensajes| BotAPI -->|Webhook/Polling| Main --> Bot --> Handlers --> Agent
