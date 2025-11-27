@@ -1,4 +1,4 @@
-.PHONY: install run docker-build docker-run clean adk-web
+.PHONY: install run docker-build docker-run deploy clean adk-web
 
 install:
 	uv sync --python 3.12
@@ -10,9 +10,19 @@ docker-build:
 	docker build -t transmibot:latest .
 
 docker-run:
-	docker run --rm \
-		-p 8080:8080 \
-		transmibot:latest
+	docker run -d \
+  		--restart unless-stopped \
+  		--name transmibot_instance \
+  		--env-file .env \
+  		-p 8080:8080 \
+  		transmibot:latest
+
+deploy: docker-build
+	@echo "Stopping and removing existing container if it exists..."
+	-docker stop transmibot_instance 2>/dev/null || true
+	-docker rm transmibot_instance 2>/dev/null || true
+	@echo "Starting new container..."
+	$(MAKE) docker-run
 
 clean:
 	rm -rf .venv __pycache__
